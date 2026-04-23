@@ -10,27 +10,37 @@ public class ProceduralCapsule : MonoBehaviour
 
     void Start() => Apply();
 
-    // Appelé automatiquement quand tu changes une valeur dans l'Inspector
     void OnValidate()
     {
-        // Sécurité : évite les valeurs invalides
-        radius  = Mathf.Max(0.01f, radius);
-        height  = Mathf.Max(radius * 2f, height); // height ne peut pas être < 2*radius
+        radius   = Mathf.Max(0.01f, radius);
+        height   = Mathf.Max(radius * 2f, height);
         segments = Mathf.Max(6, segments);
 
-        // Nécessaire car OnValidate peut être appelé avant Start
         if (GetComponent<MeshFilter>() != null)
             Apply();
     }
 
+    // --- Apply avec data ---
+    public void Apply(LimbData data)
+    {
+        radius = data.radius * data.scale;
+        height = data.height  * data.scale;
+        Apply();
+    }
+
+    // --- Apply interne ---
     public void Apply()
     {
+        radius   = Mathf.Max(0.01f, radius);
+        height   = Mathf.Max(radius * 2f, height);
+        segments = Mathf.Max(6, segments);
+
         GetComponent<MeshFilter>().mesh = CreateCapsuleMesh(radius, height, segments);
 
-        var col = GetComponent<CapsuleCollider>();
+        var col      = GetComponent<CapsuleCollider>();
         col.radius    = radius;
         col.height    = height;
-        col.direction = 1;      // axe Y
+        col.direction = 1;
         col.center    = Vector3.zero;
     }
 
