@@ -7,9 +7,25 @@ public class CreatureAgent : MonoBehaviour
     public float spawnHeightOffset = 0.1f;  // Marge au-dessus du sol
 
     [Header("Friction")]
-    public float staticFriction = 0.8f;
+    public float staticFriction  = 0.8f;
     public float dynamicFriction = 0.6f;
-    public float bounciness = 0f;
+    public float bounciness      = 0f;
+
+    [Header("Joints")]
+    public float maxJointVelocity = 120f;   // degrés/sec  (était 360)
+    public float jointForceLimit  = 100f;   // N.m         (était 500)
+    public float jointStiffness   = 1000f;
+    public float jointDamping     = 200f;   // + de damping = mouvements plus fluides
+
+    [Header("Fitness")]
+    [Tooltip("Distance minimale avant que la pénalité énergie s'applique")]
+    public float minDistForPenalty    = 0.5f;
+    [Tooltip("Poids pénalité énergie brute (somme couples)")]
+    public float energyPenaltyWeight  = 0.001f;
+    [Tooltip("Poids pénalité jerk (changement brusque d'action)")]
+    public float jerkPenaltyWeight    = 0.0005f;
+    [Tooltip("Bonus pour rester vertical")]
+    public float uprightBonusWeight   = 0.01f;
 
     [Header("Chute")]
     public float fallThreshold = 0.05f;
@@ -19,18 +35,22 @@ public class CreatureAgent : MonoBehaviour
     [HideInInspector] public bool IsAlive = false;
 
     // Corps
-    private ArticulationBody _root;
-    private List<ArticulationBody> _joints = new();
-    private List<Collider> _colliders = new();
+    private ArticulationBody       _root;
+    private List<ArticulationBody> _joints    = new();
+    private List<Collider>         _colliders = new();
 
     // Spawn
     private Vector3 _spawnPos;
-    private float _bodyHalfHeight;
+    private float   _bodyHalfHeight;
 
     // Fitness
     private Vector3 _startPos;
-    private float _fitness;
-    public float Fitness => _fitness;
+    private float   _fitness;
+    private float   _maxDist;          // distance maximale atteinte pendant l'épisode
+    private float   _energyUsed;
+    private float[] _lastActions;
+    public  float   Fitness  => _fitness;
+    public  float   MaxDist  => _maxDist;
 
     // ─────────────────────────────────────────────
     // INITIALISATION
@@ -50,9 +70,9 @@ public class CreatureAgent : MonoBehaviour
         // Applique la friction sur chaque collider
         var mat = new PhysicsMaterial("CreatureMat")
         {
-            staticFriction = staticFriction,
+            staticFriction  = staticFriction,
             dynamicFriction = dynamicFriction,
-            bounciness = bounciness,
+            bounciness      = bounciness,
             frictionCombine = PhysicsMaterialCombine.Average,
         };
         foreach (var col in _colliders)
@@ -67,8 +87,11 @@ public class CreatureAgent : MonoBehaviour
 
     public void StartEpisode()
     {
-        _fitness = 0f;
-        IsAlive = true;
+        _fitness     = 0f;
+        _maxDist     = 0f;
+        _energyUsed  = 0f;
+        _lastActions = new float[_joints.Count];
+        IsAlive      = true;
         ResetBody();
         _startPos = _root.transform.position;
     }
@@ -80,16 +103,39 @@ public class CreatureAgent : MonoBehaviour
     {
         if (!IsAlive || Brain == null) return;
 
-        float[] obs = CollectObservations();
+        float[] obs     = CollectObservations();
         float[] actions = Brain.Activate(obs);
 
+        float stepEnergy = 0f;
+        float stepJerk   = 0f;
         for (int i = 0; i < Mathf.Min(_joints.Count, actions.Length); i++)
+        {
             ApplyTorque(_joints[i], actions[i]);
+            stepEnergy += Mathf.Abs(actions[i]);
+            if (_lastActions != null && i < _lastActions.Length)
+                stepJerk += Mathf.Abs(actions[i] - _lastActions[i]);
+        }
+        _energyUsed += stepEnergy;
+        _lastActions  = actions;
 
-        float dist = _root.transform.position.z - _startPos.z;
-        _fitness = Mathf.Max(_fitness, dist);
+        Vector3 pos  = _root.transform.position;
+        float   dist = Vector2.Distance(
+            new Vector2(pos.x,       pos.z),
+            new Vector2(_startPos.x, _startPos.z)
+        );
+        if (dist > _maxDist) _maxDist = dist;
 
-        if (_root.transform.position.y < fallThreshold)
+        // Pénalité active seulement une fois qu'on a avancé suffisamment
+        float energyPenalty = _maxDist >= minDistForPenalty
+            ? (_energyUsed * energyPenaltyWeight + stepJerk * jerkPenaltyWeight)
+            : 0f;
+
+        _fitness = Mathf.Max(0f, _maxDist - energyPenalty);
+
+        if (Time.frameCount % 120 == 0)
+            Debug.Log($"[{name}] maxDist={_maxDist:F2}  energy={_energyUsed:F1}  jerk={stepJerk:F2}  penalty={energyPenalty:F2}  fitness={_fitness:F2}");
+
+        if (pos.y < fallThreshold)
             IsAlive = false;
     }
 
@@ -114,7 +160,7 @@ public class CreatureAgent : MonoBehaviour
             if (joint.dofCount > 0)
             {
                 angle = joint.jointPosition[0] / Mathf.PI;
-                vel = joint.jointVelocity[0] / 10f;
+                vel   = joint.jointVelocity[0]  / 10f;
             }
             obs.Add(angle);
             obs.Add(vel);
@@ -131,11 +177,11 @@ public class CreatureAgent : MonoBehaviour
         if (joint.jointType != ArticulationJointType.RevoluteJoint) return;
 
         var drive = joint.xDrive;
-        drive.targetVelocity = value * 360f;
-        drive.stiffness = 1000f;
-        drive.damping = 100f;
-        drive.forceLimit = 500f;
-        joint.xDrive = drive;
+        drive.targetVelocity = value * maxJointVelocity;
+        drive.stiffness      = jointStiffness;
+        drive.damping        = jointDamping;
+        drive.forceLimit     = jointForceLimit;
+        joint.xDrive         = drive;
     }
 
     // ─────────────────────────────────────────────
@@ -156,7 +202,7 @@ public class CreatureAgent : MonoBehaviour
                 _ => new ArticulationReducedSpace(0f, 0f, 0f)
             };
             joint.jointVelocity = zero;
-            joint.jointForce = zero;
+            joint.jointForce    = zero;
         }
     }
 
@@ -169,7 +215,7 @@ public class CreatureAgent : MonoBehaviour
     {
         if (_colliders.Count == 0) return 1f;
 
-        float rootY = _root.transform.position.y;
+        float rootY   = _root.transform.position.y;
         float lowestY = float.MaxValue;
 
         foreach (var col in _colliders)
@@ -179,5 +225,5 @@ public class CreatureAgent : MonoBehaviour
     }
 
     public int ObservationSize() => 6 + _joints.Count * 2;
-    public int ActionSize() => _joints.Count;
+    public int ActionSize()      => _joints.Count;
 }
