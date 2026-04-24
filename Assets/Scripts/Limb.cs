@@ -130,7 +130,15 @@ public class Limb : MonoBehaviour
 
         // Choisit aléatoirement quelle extrémité de l'enfant colle au parent
         // true = on attache par le haut de l'enfant, false = par le bas
-        bool attachByTop = Random.value > 0.5f;
+        bool attachByTop;
+        if (isRandom)
+        {
+            attachByTop = Random.value > 0.5f;
+        }
+        else
+        {
+            attachByTop = child.data.isTopTaken;
+        }
 
         // Calcule la position du centre de l'enfant pour que son extrémité touche attachPoint
         if (attachByTop)
