@@ -911,7 +911,7 @@ MonoBehaviour:
   jointDamping: 150
   minDistForPenalty: 0
   energyPenaltyWeight: 0
-  jerkPenaltyWeight: 0.05
+  jerkPenaltyWeight: 0.1
   uprightBonusWeight: 0
   fallThreshold: 0.1
   Brain:
