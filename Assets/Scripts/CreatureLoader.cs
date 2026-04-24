@@ -54,6 +54,7 @@ public class CreatureLoader
         float radius = 0.5f;
         float height = 2f;
         bool isTopTaken = false;
+        bool isTopAttached = false;
         int nbAttached = 0;
 
         while (index < lines.Length)
@@ -77,16 +78,16 @@ public class CreatureLoader
                 case "radius":         radius     = ParseFloat(value);   break;
                 case "height":         height     = ParseFloat(value);   break;
                 case "isTopTaken":     isTopTaken = bool.Parse(value);   break;
+                case "isTopAttached":  isTopAttached = bool.Parse(value);   break;
                 case "nbAttachedLimb": nbAttached = int.Parse(value);    break;
             }
 
             index++;
         }
 
-        var data = new LimbData(isBody, position, rotation, scale, radius, height);
-        data.isTopTaken = isTopTaken;
+        var data = new LimbData(isBody, position, rotation, scale, radius, height, isTopTaken, isTopAttached);
 
-        Limb limb = Limb.Create(data, parent, attach: false);
+        Limb limb = Limb.Create(data, parent, isRandom: false);
         limb.nbAttachedLimb = nbAttached;
 
         // Lit les enfants au niveau depth+1

@@ -25,7 +25,7 @@ public class Creature : MonoBehaviour
         {
             LimbData data = new LimbData(false, Vector3.zero);
             Limb limb = Limb.Create(data, body);
-            limb.nbAttachedLimb = Random.Range(0, 6);
+            limb.nbAttachedLimb = Random.Range(0, 1);
             for (int j = 0; j < limb.nbAttachedLimb; j++)
             {
                 LimbData data2 = new LimbData(false, Vector3.zero);
