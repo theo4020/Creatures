@@ -10,10 +10,11 @@ public class LimbData
     public float height;
     public bool isBody;
     public bool isTopTaken;
+    public bool isTopAttached;
     
-    public LimbData(bool isBody, Vector3 position, Quaternion rotation, float scale, float radius, float height)
+    public LimbData(bool isBody, Vector3 position, Quaternion rotation, float scale, float radius, float height, bool isTopTaken, bool isTopAttached)
     {
-        Init(isBody, position, rotation, scale, radius, height);
+        Init(isBody, position, rotation, scale, radius, height, isTopTaken, isTopAttached);
     }
 
     public LimbData(bool isBody)
@@ -34,7 +35,7 @@ public class LimbData
         Init(isBody, position);
     }
     
-    private void Init(bool isBody, Vector3 position, Quaternion rotation, float scale, float radius, float height)
+    private void Init(bool isBody, Vector3 position, Quaternion rotation, float scale, float radius, float height, bool isTopTaken, bool isTopAttached)
     {
         this.isBody = isBody;
         this.position = position;
@@ -42,6 +43,8 @@ public class LimbData
         this.scale = scale;
         this.radius = radius;
         this.height = height;
+        this.isTopTaken = isTopTaken;
+        this.isTopAttached = isTopAttached;
     }
     
     private void Init(bool isBody, Vector3 position)
