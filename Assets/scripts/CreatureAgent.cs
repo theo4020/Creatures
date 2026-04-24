@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class CreatureAgent : MonoBehaviour
 {
     [Header("Reset")]
-    public float spawnHeightOffset = 0.1f;  // Marge au-dessus du sol
+    public float spawnHeightOffset = 0.1f;
 
     [Header("Friction")]
     public float staticFriction  = 0.8f;
@@ -12,77 +13,99 @@ public class CreatureAgent : MonoBehaviour
     public float bounciness      = 0f;
 
     [Header("Joints")]
-    public float maxJointVelocity = 120f;   // degrés/sec  (était 360)
-    public float jointForceLimit  = 100f;   // N.m         (était 500)
+    public float maxJointVelocity = 120f;
     public float jointStiffness   = 1000f;
-    public float jointDamping     = 200f;   // + de damping = mouvements plus fluides
+    public float jointDamping     = 200f;
+    public float jointForceLimit  = 100f;
 
     [Header("Fitness")]
-    [Tooltip("Distance minimale avant que la pénalité énergie s'applique")]
-    public float minDistForPenalty    = 0.5f;
-    [Tooltip("Poids pénalité énergie brute (somme couples)")]
-    public float energyPenaltyWeight  = 0.001f;
-    [Tooltip("Poids pénalité jerk (changement brusque d'action)")]
-    public float jerkPenaltyWeight    = 0.0005f;
-    [Tooltip("Bonus pour rester vertical")]
-    public float uprightBonusWeight   = 0.01f;
+    public float minDistForPenalty   = 0.5f;
+    public float energyPenaltyWeight = 0.001f;
+    public float jerkPenaltyWeight   = 0.0005f;
 
     [Header("Chute")]
     public float fallThreshold = 0.05f;
 
-    // Cerveau injecté par le TrainingManager
+    // Cerveau injecté par TrainingManager
     [HideInInspector] public NeuralNetwork Brain;
     [HideInInspector] public bool IsAlive = false;
 
     // Corps
     private ArticulationBody       _root;
-    private List<ArticulationBody> _joints    = new();
-    private List<Collider>         _colliders = new();
+    private List<ArticulationBody> _joints = new();
 
     // Spawn
     private Vector3 _spawnPos;
     private float   _bodyHalfHeight;
+    private float   _overrideSpawnHeight = 0f;  // 0 = auto, sinon valeur du TrainingManager
+    public  void    SetSpawnHeight(float h) => _overrideSpawnHeight = h;
 
     // Fitness
-    private Vector3 _startPos;
-    private float   _fitness;
-    private float   _maxDist;          // distance maximale atteinte pendant l'épisode
-    private float   _energyUsed;
-    private float[] _lastActions;
-    public  float   Fitness  => _fitness;
-    public  float   MaxDist  => _maxDist;
+    private Vector3  _startPos;
+    private float    _fitness;
+    private float    _maxDist;
+    private float    _energyUsed;
+    private float[]  _lastActions;
+    public  float    Fitness => _fitness;
+    public  float    MaxDist => _maxDist;
 
     // ─────────────────────────────────────────────
     // INITIALISATION
     // ─────────────────────────────────────────────
     public void Initialize()
     {
-        // Détecte root et joints
-        _root = GetComponentInChildren<ArticulationBody>();
         _joints.Clear();
-        foreach (var ab in GetComponentsInChildren<ArticulationBody>())
-            if (ab != _root) _joints.Add(ab);
 
-        // Récupère tous les colliders
-        _colliders.Clear();
-        _colliders.AddRange(GetComponentsInChildren<Collider>());
+        // ── CAS 1 : Creature component présent (génération aléatoire) ──
+        Creature creature = GetComponentInChildren<Creature>();
+        if (creature != null && creature.body != null)
+        {
+            _root = creature.body.ab;
+            CollectJoints(creature.body);
+            Debug.Log($"[{name}] Mode Creature  root='{_root?.name}'  joints={_joints.Count}");
+        }
+        else
+        {
+            // ── CAS 2 : Prefab manuel (ArticulationBodies directs) ──
+            var allABs = GetComponentsInChildren<ArticulationBody>();
+            if (allABs.Length == 0)
+            {
+                Debug.LogError($"[{name}] Aucun ArticulationBody trouvé !");
+                return;
+            }
+            _root = allABs[0];
+            foreach (var ab in allABs)
+                if (ab != _root) _joints.Add(ab);
+            Debug.Log($"[{name}] Mode Prefab  root='{_root.name}'  joints={_joints.Count}");
+        }
 
-        // Applique la friction sur chaque collider
+        // Friction sur tous les colliders
         var mat = new PhysicsMaterial("CreatureMat")
         {
             staticFriction  = staticFriction,
             dynamicFriction = dynamicFriction,
             bounciness      = bounciness,
-            frictionCombine = PhysicsMaterialCombine.Average,
+            frictionCombine = PhysicsMaterialCombine.Average
         };
-        foreach (var col in _colliders)
+        foreach (var col in GetComponentsInChildren<Collider>())
             col.sharedMaterial = mat;
 
-        // Calcule la hauteur du corps pour le spawn
         _bodyHalfHeight = ComputeBodyHalfHeight();
-        _spawnPos = new Vector3(transform.position.x, 0f, transform.position.z);
+        _spawnPos       = transform.position;
+        _lastActions    = new float[ActionSize()];
 
-        Debug.Log($"[{name}] joints={_joints.Count}  colliders={_colliders.Count}  halfHeight={_bodyHalfHeight:F2}");
+        Debug.Log($"[{name}] obs={ObservationSize()}  actions={ActionSize()}  halfH={_bodyHalfHeight:F2}");
+    }
+
+    // Parcours récursif de l'arbre de Limbs
+    private void CollectJoints(Limb limb)
+    {
+        foreach (var child in limb.limbs)
+        {
+            if (child.ab != null && child.ab != _root)
+                _joints.Add(child.ab);
+            CollectJoints(child);
+        }
     }
 
     public void StartEpisode()
@@ -90,7 +113,7 @@ public class CreatureAgent : MonoBehaviour
         _fitness     = 0f;
         _maxDist     = 0f;
         _energyUsed  = 0f;
-        _lastActions = new float[_joints.Count];
+        _lastActions = new float[ActionSize()];
         IsAlive      = true;
         ResetBody();
         _startPos = _root.transform.position;
@@ -101,39 +124,57 @@ public class CreatureAgent : MonoBehaviour
     // ─────────────────────────────────────────────
     private void FixedUpdate()
     {
-        if (!IsAlive || Brain == null) return;
+        if (!IsAlive || Brain == null || _root == null) return;
 
         float[] obs     = CollectObservations();
         float[] actions = Brain.Activate(obs);
 
         float stepEnergy = 0f;
         float stepJerk   = 0f;
-        for (int i = 0; i < Mathf.Min(_joints.Count, actions.Length); i++)
-        {
-            ApplyTorque(_joints[i], actions[i]);
-            stepEnergy += Mathf.Abs(actions[i]);
-            if (_lastActions != null && i < _lastActions.Length)
-                stepJerk += Mathf.Abs(actions[i] - _lastActions[i]);
-        }
-        _energyUsed += stepEnergy;
-        _lastActions  = actions;
+        int   actionIdx  = 0;
 
+        for (int i = 0; i < _joints.Count; i++)
+        {
+            int dof = Mathf.Max(1, _joints[i].dofCount);
+            float ax = actionIdx < actions.Length ? actions[actionIdx++] : 0f;
+            float ay = dof > 1 && actionIdx < actions.Length ? actions[actionIdx++] : 0f;
+            float az = dof > 2 && actionIdx < actions.Length ? actions[actionIdx++] : 0f;
+
+            ApplySphericalTorque(_joints[i], ax, ay, az);
+
+            stepEnergy += Mathf.Abs(ax) + Mathf.Abs(ay) + Mathf.Abs(az);
+
+            int baseIdx = _joints.Take(i).Sum(j => Mathf.Max(1, j.dofCount));
+            if (_lastActions.Length > baseIdx)
+            {
+                stepJerk += Mathf.Abs(ax - _lastActions[baseIdx]);
+                if (dof > 1 && _lastActions.Length > baseIdx + 1) stepJerk += Mathf.Abs(ay - _lastActions[baseIdx + 1]);
+                if (dof > 2 && _lastActions.Length > baseIdx + 2) stepJerk += Mathf.Abs(az - _lastActions[baseIdx + 2]);
+            }
+        }
+
+        // Sauvegarde actions
+        for (int i = 0; i < Mathf.Min(actions.Length, _lastActions.Length); i++)
+            _lastActions[i] = actions[i];
+
+        _energyUsed += stepEnergy;
+
+        // Distance 2D
         Vector3 pos  = _root.transform.position;
         float   dist = Vector2.Distance(
-            new Vector2(pos.x,       pos.z),
+            new Vector2(pos.x, pos.z),
             new Vector2(_startPos.x, _startPos.z)
         );
         if (dist > _maxDist) _maxDist = dist;
 
-        // Pénalité active seulement une fois qu'on a avancé suffisamment
+        // Fitness
         float energyPenalty = _maxDist >= minDistForPenalty
             ? (_energyUsed * energyPenaltyWeight + stepJerk * jerkPenaltyWeight)
             : 0f;
-
         _fitness = Mathf.Max(0f, _maxDist - energyPenalty);
 
         if (Time.frameCount % 120 == 0)
-            Debug.Log($"[{name}] maxDist={_maxDist:F2}  energy={_energyUsed:F1}  jerk={stepJerk:F2}  penalty={energyPenalty:F2}  fitness={_fitness:F2}");
+            //Debug.Log($"[{name}] dist={_maxDist:F2}  fitness={_fitness:F2}  joints={_joints.Count}");
 
         if (pos.y < fallThreshold)
             IsAlive = false;
@@ -146,6 +187,9 @@ public class CreatureAgent : MonoBehaviour
     {
         var obs = new List<float>();
 
+        if (_root == null) return new float[ObservationSize()];
+
+        // Torse
         Vector3 localVel = _root.transform.InverseTransformDirection(_root.linearVelocity);
         obs.Add(localVel.x);
         obs.Add(localVel.z);
@@ -154,34 +198,58 @@ public class CreatureAgent : MonoBehaviour
         obs.Add(_root.transform.up.z);
         obs.Add(_root.transform.position.y);
 
+        // Joints : angle + vélocité par DOF réel
         foreach (var joint in _joints)
         {
-            float angle = 0f, vel = 0f;
-            if (joint.dofCount > 0)
+            if (joint == null) continue;
+            int dof = Mathf.Max(1, joint.dofCount);
+            for (int d = 0; d < dof; d++)
             {
-                angle = joint.jointPosition[0] / Mathf.PI;
-                vel   = joint.jointVelocity[0]  / 10f;
+                float angle = d < joint.dofCount ? joint.jointPosition[d] / Mathf.PI : 0f;
+                float vel   = d < joint.dofCount ? joint.jointVelocity[d]  / 10f     : 0f;
+                obs.Add(angle);
+                obs.Add(vel);
             }
-            obs.Add(angle);
-            obs.Add(vel);
         }
 
         return obs.ToArray();
     }
 
     // ─────────────────────────────────────────────
-    // ACTIONS
+    // ACTIONS — Revolute ET Sphérique
     // ─────────────────────────────────────────────
-    private void ApplyTorque(ArticulationBody joint, float value)
+    private void ApplySphericalTorque(ArticulationBody joint, float ax, float ay, float az)
     {
-        if (joint.jointType != ArticulationJointType.RevoluteJoint) return;
+        void SetDrive(ref ArticulationDrive drive, float val)
+        {
+            drive.targetVelocity = val * maxJointVelocity;
+            drive.stiffness      = jointStiffness;
+            drive.damping        = jointDamping;
+            drive.forceLimit     = jointForceLimit;
+        }
 
-        var drive = joint.xDrive;
-        drive.targetVelocity = value * maxJointVelocity;
-        drive.stiffness      = jointStiffness;
-        drive.damping        = jointDamping;
-        drive.forceLimit     = jointForceLimit;
-        joint.xDrive         = drive;
+        switch (joint.jointType)
+        {
+            case ArticulationJointType.RevoluteJoint:
+                // 1 seul axe X
+                var xRev = joint.xDrive;
+                SetDrive(ref xRev, ax);
+                joint.xDrive = xRev;
+                break;
+
+            case ArticulationJointType.SphericalJoint:
+                // 3 axes X Y Z
+                var xd = joint.xDrive; SetDrive(ref xd, ax); joint.xDrive = xd;
+                var yd = joint.yDrive; SetDrive(ref yd, ay); joint.yDrive = yd;
+                var zd = joint.zDrive; SetDrive(ref zd, az); joint.zDrive = zd;
+                break;
+
+            case ArticulationJointType.PrismaticJoint:
+                var xPri = joint.xDrive;
+                SetDrive(ref xPri, ax);
+                joint.xDrive = xPri;
+                break;
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -189,13 +257,13 @@ public class CreatureAgent : MonoBehaviour
     // ─────────────────────────────────────────────
     private void ResetBody()
     {
-        // Spawn juste au-dessus du sol, basé sur la vraie taille du corps
-        float y = _bodyHalfHeight + spawnHeightOffset;
+        float y = _overrideSpawnHeight > 0f ? _overrideSpawnHeight : _bodyHalfHeight + spawnHeightOffset;
         _root.TeleportRoot(new Vector3(_spawnPos.x, y, _spawnPos.z), Quaternion.identity);
 
         foreach (var joint in _joints)
         {
-            var zero = joint.dofCount switch
+            int dof  = Mathf.Clamp(joint.dofCount, 1, 3);
+            var zero = dof switch
             {
                 1 => new ArticulationReducedSpace(0f),
                 2 => new ArticulationReducedSpace(0f, 0f),
@@ -206,24 +274,26 @@ public class CreatureAgent : MonoBehaviour
         }
     }
 
-    // ─────────────────────────────────────────────
-    // UTILITAIRES
-    // ─────────────────────────────────────────────
-
-    // Calcule la distance entre le centre du root et le point le plus bas des colliders
     private float ComputeBodyHalfHeight()
     {
-        if (_colliders.Count == 0) return 1f;
-
+        var colliders = GetComponentsInChildren<Collider>();
+        if (colliders.Length == 0) return 1f;
         float rootY   = _root.transform.position.y;
         float lowestY = float.MaxValue;
-
-        foreach (var col in _colliders)
+        foreach (var col in colliders)
             lowestY = Mathf.Min(lowestY, col.bounds.min.y);
-
         return Mathf.Abs(rootY - lowestY) + 0.05f;
     }
 
-    public int ObservationSize() => 6 + _joints.Count * 2;
-    public int ActionSize()      => _joints.Count;
+    // Taille dynamique selon le DOF réel de chaque joint
+    public int ObservationSize()
+    {
+        int dofs = _joints.Sum(j => Mathf.Max(1, j.dofCount));
+        return 6 + dofs * 2; // angle + vélocité par DOF
+    }
+
+    public int ActionSize()
+    {
+        return _joints.Sum(j => Mathf.Max(1, j.dofCount));
+    }
 }
