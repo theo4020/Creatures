@@ -24,7 +24,7 @@ public class Limb : MonoBehaviour
     }
 
     // Création depuis un script
-    public static Limb Create(LimbData data, Limb parent = null, bool attach = true)
+    public static Limb Create(LimbData data, Limb parent = null, bool isRandom = true)
     {
         GameObject go = new GameObject();
         go.name = data.isBody ? "Body" : "Limb";
@@ -56,6 +56,10 @@ public class Limb : MonoBehaviour
             ab.xDrive = drive;
             ab.yDrive = drive;
             ab.zDrive = drive;
+
+            ab.swingYLock = ArticulationDofLock.LimitedMotion;
+            ab.swingZLock = ArticulationDofLock.LimitedMotion;
+            ab.twistLock = ArticulationDofLock.LimitedMotion;
             
             ab.anchorRotation = Quaternion.identity;
         }
@@ -74,8 +78,7 @@ public class Limb : MonoBehaviour
         if (parent != null)
         {
             go.transform.SetParent(parent.transform, false);
-            if (attach)
-                parent.AttachLimb(limb); // seulement à la création, pas au chargement
+            parent.AttachLimb(limb, isRandom);
         }
 
         return limb;
@@ -92,13 +95,33 @@ public class Limb : MonoBehaviour
         return transform.position - transform.up * data.scale * (data.height * 0.5f);
     }
     
-    public void AttachLimb(Limb child)
+    public void AttachLimb(Limb child, bool isRandom = true)
     {
         // Choisit aléatoirement l'extrémité du parent
         Vector3 attachPoint;
         if (data.isBody)
         {
-            attachPoint = Random.value > 0.5f ? GetTopPoint() : GetBottomPoint();
+            if (isRandom)
+            {
+                if (Random.value > 0.5f)
+                {
+                    attachPoint = GetTopPoint();
+                    child.data.isTopAttached = true;
+                }
+                else
+                {
+                    attachPoint = GetBottomPoint();
+                    child.data.isTopAttached = false;
+                }
+            }
+            else if(child.data.isTopAttached)
+            {
+                attachPoint = GetTopPoint();
+            }
+            else
+            {
+                attachPoint = GetBottomPoint();
+            }
         }
         else
         {
@@ -115,14 +138,14 @@ public class Limb : MonoBehaviour
         {
             child.transform.position = attachPoint - child.transform.up * child.data.scale * (child.data.height * 0.5f);
             child.data.isTopTaken = true;
-            child.ab.anchorPosition = new Vector3(0, data.height * data.scale * 0.5f, 0);
+            child.ab.anchorPosition = new Vector3(0, child.data.height * child.data.scale * 0.5f, 0);
         }
         else
             // centre = attachPoint + (direction haut enfant * moitié hauteur enfant)
         {
             child.transform.position = attachPoint + child.transform.up * child.data.scale * (child.data.height * 0.5f);
             child.data.isTopTaken = false;
-            child.ab.anchorPosition = new Vector3(0, -data.height * data.scale * 0.5f, 0);
+            child.ab.anchorPosition = new Vector3(0, -child.data.height * child.data.scale * 0.5f, 0);
         }
     }
 }

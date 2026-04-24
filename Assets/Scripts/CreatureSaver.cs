@@ -36,6 +36,7 @@ public class CreatureSaver
         sb.AppendLine($"{indent}radius={limb.data.radius.ToString(c)}");
         sb.AppendLine($"{indent}height={limb.data.height.ToString(c)}");
         sb.AppendLine($"{indent}isTopTaken={limb.data.isTopTaken}");
+        sb.AppendLine($"{indent}isTopAttached={limb.data.isTopAttached}");
         sb.AppendLine($"{indent}nbAttachedLimb={limb.nbAttachedLimb}");
         sb.AppendLine($"{indent}[/LIMB]");
 
