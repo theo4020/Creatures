@@ -8,10 +8,13 @@ using Random = UnityEngine.Random;
 public class Creature : MonoBehaviour
 {
     public Limb body;
+
+    public string fileName = "";
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        //CreateFromStart();
+        CreateFromStart();
+        CreatureSaver.Save(this, fileName);
     }
 
     // Update is called once per frame
@@ -20,7 +23,7 @@ public class Creature : MonoBehaviour
         
     }
 
-    void CreateFromStart()
+    public void CreateFromStart()
     {
         LimbData bodyData = new LimbData(true, Vector3.zero);
         body = Limb.Create(bodyData);
@@ -38,8 +41,6 @@ public class Creature : MonoBehaviour
             }
             body.limbs.Add(limb);
         }
-        
-        CreatureSaver.Save(this, "creature_01");
     }
 
     public Creature Procreate(Creature parent1, Creature parent2, GameObject creatureGo)
@@ -53,7 +54,15 @@ public class Creature : MonoBehaviour
             Limb limb;
             if (i >= parent1.body.nbAttachedLimb)
             {
-                limb = parent2.body.limbs[i];
+                if (i >= parent2.body.nbAttachedLimb)
+                {
+                    LimbData data = new LimbData(false, Vector3.zero);
+                    limb = Limb.Create(data, child.body);
+                }
+                else
+                {
+                    limb = parent2.body.limbs[i];
+                }
             }
             else if (i >= parent2.body.nbAttachedLimb)
             {
@@ -89,9 +98,13 @@ public class Creature : MonoBehaviour
         {
             data.rotation = data2.rotation;
         }
-        else
+        else if (random <= 9)
         {
             data.rotation = RandomRange(data1.rotation, data2.rotation);
+        }
+        else
+        {
+            data.rotation = Random.rotation;
         }
         
         //Scale
@@ -104,9 +117,14 @@ public class Creature : MonoBehaviour
         {
             data.scale = data2.scale;
         }
-        else
+        else if (random <= 9)
         {
             data.scale = Random.Range(Mathf.Min(data1.scale, data2.scale), Mathf.Max(data1.scale, data2.scale));
+        }
+        else
+        {
+            data.scale = Random.Range(0.5f, 2f);
+            if (data.isBody) data.scale *= 2f;
         }
         
         //Radius
@@ -119,9 +137,13 @@ public class Creature : MonoBehaviour
         {
             data.radius = data2.radius;
         }
-        else
+        else if (random <= 9)
         {
             data.radius = Random.Range(Mathf.Min(data1.radius, data2.radius), Mathf.Max(data1.radius, data2.radius));
+        }
+        else
+        {
+            data.radius = Random.Range(0.5f, 2f);
         }
         
         //Height
@@ -134,21 +156,29 @@ public class Creature : MonoBehaviour
         {
             data.height = data2.height;
         }
-        else
+        else if (random <= 9)
         {
             data.height = Random.Range(Mathf.Min(data1.height, data2.height), Mathf.Max(data1.height, data2.height));
+        }
+        else
+        {
+            data.height = Random.Range(data.radius*2, 5f);
         }
         data.height = Mathf.Max(data.radius*2, data.height);
         
         //IsTopAttached
         random = Random.Range(1, 11);
-        if (random <= 5)
+        if (random <= 4)
         {
             data.isTopAttached = data1.isTopAttached;
         }
-        else if (random <= 10)
+        else if (random <= 8)
         {
             data.isTopAttached = data2.isTopAttached;
+        }
+        else
+        {
+            data.isTopAttached = Random.Range(0f, 1f) > 0.5f;
         }
         
         //IsTopTaken
@@ -160,6 +190,10 @@ public class Creature : MonoBehaviour
         else if (random <= 10)
         {
             data.isTopTaken = data2.isTopTaken;
+        }
+        else
+        {
+            data.isTopTaken = Random.Range(0f, 1f) > 0.5f;
         }
 
         limb = Limb.Create(data, HierarchyParent, false);
@@ -174,10 +208,14 @@ public class Creature : MonoBehaviour
         {
             limb.nbAttachedLimb = parent2.nbAttachedLimb;
         }
-        else
+        else if (random <= 9)
         {
             limb.nbAttachedLimb = Random.Range(Mathf.Min(parent1.nbAttachedLimb, parent2.nbAttachedLimb), 
                 Mathf.Max(parent1.nbAttachedLimb, parent2.nbAttachedLimb));
+        }
+        else
+        {
+            limb.nbAttachedLimb = Random.Range(0, 9);
         }
 
         return limb;
