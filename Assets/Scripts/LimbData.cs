@@ -9,6 +9,7 @@ public class LimbData
     public float radius;
     public float height;
     public bool isBody;
+    public bool isTopTaken;
     
     public LimbData(bool isBody, Vector3 position, Quaternion rotation, float scale, float radius, float height)
     {
@@ -55,7 +56,8 @@ public class LimbData
             this.position = position;
         }
         rotation = Random.rotation;
-        scale = Random.Range(0.5f, 5f);
+        scale = Random.Range(0.5f, 2f);
+        if (this.isBody) scale *= 2f;
         radius = Random.Range(0.5f, 2f);
         height = Random.Range(radius*2, 5f);
     }
