@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &311585436
+--- !u!1 &7213427
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 311585438}
-  - component: {fileID: 311585437}
+  - component: {fileID: 7213429}
+  - component: {fileID: 7213428}
   m_Layer: 0
   m_Name: CreateCreature
   m_TagString: Untagged
@@ -136,31 +136,31 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &311585437
+--- !u!114 &7213428
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 311585436}
+  m_GameObject: {fileID: 7213427}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbfad61fcb2b57b4e8b3c8917c17e118, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CreateCreature
-  name1: Creature1
-  name2: Creature2
-  nameChild: Child
---- !u!4 &311585438
+  name1: Creature3
+  name2: Creature1
+  nameChild: Child3
+--- !u!4 &7213429
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 311585436}
+  m_GameObject: {fileID: 7213427}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.07152, y: -11.75, z: 5.82554}
+  m_LocalPosition: {x: 6.79978, y: -11.75, z: 3.2242}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -550,4 +550,4 @@ SceneRoots:
   - {fileID: 1125645856}
   - {fileID: 575445619}
   - {fileID: 564894271}
-  - {fileID: 311585438}
+  - {fileID: 7213429}

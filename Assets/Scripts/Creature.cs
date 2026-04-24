@@ -13,8 +13,8 @@ public class Creature : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        CreateFromStart();
-        CreatureSaver.Save(this, fileName);
+        //CreateFromStart();
+        //CreatureSaver.Save(this, fileName);
     }
 
     // Update is called once per frame

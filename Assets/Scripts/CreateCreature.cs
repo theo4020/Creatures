@@ -16,7 +16,8 @@ public class CreateCreature : MonoBehaviour
         Creature creature2 = CreatureLoader.Load(name2, go2);
 
         GameObject go3 = new GameObject(nameChild);
-        Creature child = creature2.Procreate(creature1, creature2, go3);
+        Creature child = go3.AddComponent<Creature>();
+        child.Procreate(creature1, creature2, go3);
         CreatureSaver.Save(child, nameChild);
     }
 
