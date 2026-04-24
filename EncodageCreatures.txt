@@ -1,0 +1,10 @@
+- Chaque membre correspond à une Capsule 
+- Pour chaque membre 9 valeurs (floats) : 
+	- 3 pour la position (pour le tronc = 0;0;0)
+	- 3 pour la rotation (minimum 0, maximum 360)
+	- 1 pour le scale (scale commun à tous les axes, minimum 0.5, maximum 5)
+	- 1 pour le radius de la capsule (minmum 0.5, maximum 2)
+	- 1 pour la height de la capsule (minimum 1, maximum 10, height doit toujours être au moins 2 * le radius minimum)
+	(on gardera toujours le même nombre de segments, probablement 12)
+- Pour le nombre de membres et leurs répartition pour l'instant on part sur un tronc central (1 capsule), de 0 à 10 membres attachés à lui
+	et chacun de ces membres peuvent avoir de 0 à 10 membres attachés à eux
