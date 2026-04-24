@@ -1,0 +1,42 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1777021999",
+        "python_version": "3.10.0 (tags/v3.10.0:b494f59, Oct  4 2021, 19:00:18) [MSC v.1929 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\theos\\OneDrive\\Bureau\\travail ESGI\\anim proc\u00e9durale\\Creatures\\venv_ml\\Scripts\\mlagents-learn config.yaml --run-id=run5",
+        "mlagents_version": "0.30.0",
+        "mlagents_envs_version": "0.30.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.11.0+cpu",
+        "numpy_version": "1.21.2",
+        "end_time_seconds": "1777022061"
+    },
+    "total": 61.71136430000024,
+    "count": 1,
+    "self": 0.008600399999522779,
+    "children": {
+        "run_training.setup": {
+            "total": 0.06750920000013139,
+            "count": 1,
+            "self": 0.06750920000013139
+        },
+        "TrainerController.start_learning": {
+            "total": 61.63525470000059,
+            "count": 1,
+            "self": 0.0001050000009854557,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 61.63512300000002,
+                    "count": 1,
+                    "self": 61.63512300000002
+                },
+                "TrainerController._save_models": {
+                    "total": 2.6699999580159783e-05,
+                    "count": 1,
+                    "self": 2.6699999580159783e-05
+                }
+            }
+        }
+    }
+}

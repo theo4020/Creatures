@@ -16,8 +16,8 @@ public class TrainingManager : MonoBehaviour
 {
     [Header("Population")]
     public GameObject creaturePrefab;
-    public int populationSize = 20;
-    public float spacing = 3f;      // Espacement entre créatures
+    public int        populationSize  = 20;
+    public float      spacing         = 3f;      // Espacement entre créatures
 
     [Header("Épisode")]
     public float episodeDuration = 10f;          // Secondes par génération
@@ -27,14 +27,17 @@ public class TrainingManager : MonoBehaviour
     public int hiddenLayers = 2;                 // Nombre de couches cachées
 
     [Header("Algorithme génétique")]
-    [Range(0f, 1f)] public float mutationRate = 0.1f;
+    [Range(0f, 1f)] public float mutationRate     = 0.1f;
     [Range(0f, 1f)] public float mutationStrength = 0.2f;
-    [Range(0f, 1f)] public float eliteRatio = 0.2f;  // % élites conservées
+    [Range(0f, 1f)] public float eliteRatio       = 0.2f;  // % élites conservées
 
     // État
     private List<CreatureAgent> _population = new();
-    private int _generation = 0;
-    private float _bestFitness = 0f;
+    private int   _generation    = 0;
+    private float _bestFitness   = 0f;
+    private float _prevBestFitness = 0f;
+    private float _prevBestDist    = 0f;
+    private float _prevAvgFitness  = 0f;
 
     // ─────────────────────────────────────────────
     // DÉMARRAGE
@@ -68,7 +71,7 @@ public class TrainingManager : MonoBehaviour
 
             // Construit le réseau : [obs, hidden..., actions]
             int[] layers = BuildLayerSizes(agent);
-            agent.Brain = new NeuralNetwork(layers);
+            agent.Brain  = new NeuralNetwork(layers);
 
             _population.Add(agent);
         }
@@ -112,12 +115,18 @@ public class TrainingManager : MonoBehaviour
     {
         var sorted = _population.OrderByDescending(a => a.Fitness).ToList();
 
-        float best = sorted[0].Fitness;
-        float avg = _population.Average(a => a.Fitness);
+        float bestFitness = sorted[0].Fitness;
+        float bestDist    = _population.Max(a => a.MaxDist);
+        float avgFitness  = _population.Average(a => a.Fitness);
 
-        if (best > _bestFitness) _bestFitness = best;
+        if (bestFitness > _bestFitness) _bestFitness = bestFitness;
 
-        Debug.Log($"[GA] Gen {_generation} | Best: {best:F2}m | Avg: {avg:F2}m | AllTimeBest: {_bestFitness:F2}m");
+        // Sauvegarde pour affichage génération suivante
+        _prevBestFitness = bestFitness;
+        _prevBestDist    = bestDist;
+        _prevAvgFitness  = avgFitness;
+
+        Debug.Log($"[GA] Gen {_generation} | BestFitness={bestFitness:F2} | BestDist={bestDist:F2}m | Avg={avgFitness:F2} | AllTimeBest={_bestFitness:F2}");
     }
 
     // ─────────────────────────────────────────────
@@ -125,7 +134,7 @@ public class TrainingManager : MonoBehaviour
     // ─────────────────────────────────────────────
     private void EvolvePopulation()
     {
-        var sorted = _population.OrderByDescending(a => a.Fitness).ToList();
+        var sorted    = _population.OrderByDescending(a => a.Fitness).ToList();
         int eliteCount = Mathf.Max(1, Mathf.RoundToInt(populationSize * eliteRatio));
 
         List<NeuralNetwork> newBrains = new();
@@ -139,7 +148,7 @@ public class TrainingManager : MonoBehaviour
         {
             NeuralNetwork parentA = sorted[Random.Range(0, eliteCount)].Brain;
             NeuralNetwork parentB = sorted[Random.Range(0, eliteCount)].Brain;
-            NeuralNetwork child = NeuralNetwork.Crossover(parentA, parentB);
+            NeuralNetwork child   = NeuralNetwork.Crossover(parentA, parentB);
             child.Mutate(mutationRate, mutationStrength);
             newBrains.Add(child);
         }
@@ -166,13 +175,34 @@ public class TrainingManager : MonoBehaviour
     // ─────────────────────────────────────────────
     private void OnGUI()
     {
-        GUI.Label(new Rect(10, 10, 300, 25), $"Génération : {_generation}");
-        GUI.Label(new Rect(10, 35, 300, 25), $"Meilleur (all time) : {_bestFitness:F2} m");
+        var style = new GUIStyle(GUI.skin.label) { fontSize = 14 };
+        var styleGood = new GUIStyle(style);
+        styleGood.normal.textColor = Color.green;
+        var styleBad = new GUIStyle(style);
+        styleBad.normal.textColor = new Color(1f, 0.4f, 0f);
 
+        GUI.Label(new Rect(10, 10, 350, 25), $"Génération    : {_generation}", style);
+        GUI.Label(new Rect(10, 35, 350, 25), $"All-time best : {_bestFitness:F2}", styleGood);
+
+        // Séparateur
+        GUI.Label(new Rect(10, 65, 350, 20), "── Génération précédente ──", style);
+        GUI.Label(new Rect(10, 85,  350, 25), $"  Meilleure fitness : {_prevBestFitness:F2}", style);
+        GUI.Label(new Rect(10, 108, 350, 25), $"  Meilleure dist    : {_prevBestDist:F2} m", style);
+        GUI.Label(new Rect(10, 131, 350, 25), $"  Fitness moyenne   : {_prevAvgFitness:F2}", style);
+
+        // Vivantes
         if (_population.Count > 0)
         {
             int alive = _population.Count(a => a.IsAlive);
-            GUI.Label(new Rect(10, 60, 300, 25), $"Vivantes : {alive} / {populationSize}");
+            GUI.Label(new Rect(10, 160, 350, 25), $"Vivantes : {alive} / {populationSize}", alive > 0 ? style : styleBad);
         }
+
+        // Boutons vitesse
+        GUI.Label(new Rect(10, 192, 300, 25), $"Vitesse : x{Time.timeScale:F0}", style);
+        if (GUI.Button(new Rect(10,  217, 50, 28), "x1"))  Time.timeScale = 1f;
+        if (GUI.Button(new Rect(65,  217, 50, 28), "x2"))  Time.timeScale = 2f;
+        if (GUI.Button(new Rect(120, 217, 50, 28), "x5"))  Time.timeScale = 5f;
+        if (GUI.Button(new Rect(175, 217, 50, 28), "x10")) Time.timeScale = 10f;
+        if (GUI.Button(new Rect(230, 217, 50, 28), "x20")) Time.timeScale = 20f;
     }
 }
