@@ -277,11 +277,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TrainingManager
   creaturePrefab: {fileID: 6978396983561786869, guid: 869af766a861f7648a86329eedba6ced, type: 3}
-  populationSize: 75
+  populationSize: 50
   spacing: 5
   spawnHeight: 1
   episodeDuration: 10
-  hiddenUnits: 32
+  hiddenUnits: 16
   hiddenLayers: 2
   mutationRate: 0.1
   mutationStrength: 0.2
